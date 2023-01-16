@@ -13,10 +13,9 @@ exports.ExposeStore = (moduleRaidStr) => {
     window.Store.Cmd = window.mR.findModule('Cmd')[0].Cmd;
     window.Store.CryptoLib = window.mR.findModule('decryptE2EMedia')[0];
     window.Store.DownloadManager = window.mR.findModule('downloadManager')[0].downloadManager;
-    //window.Store.Features = window.mR.findModule('FEATURE_CHANGE_EVENT')[0].LegacyPhoneFeatures;
     window.Store.GroupMetadata = window.mR.findModule('GroupMetadata')[0].default.GroupMetadata;
-    window.Store.Invite = window.mR.findModule('sendJoinGroupViaInvite')[0];
-    window.Store.InviteInfo = window.mR.findModule('sendQueryGroupInvite')[0];
+    window.Store.Invite = window.mR.findModule('resetGroupInviteCode')[0];
+    window.Store.InviteInfo = window.mR.findModule('queryGroupInvite')[0];
     window.Store.Label = window.mR.findModule('LabelCollection')[0].LabelCollection;
     window.Store.MediaPrep = window.mR.findModule('MediaPrep')[0];
     window.Store.MediaObject = window.mR.findModule('getOrCreateMediaObject')[0];
@@ -42,7 +41,7 @@ exports.ExposeStore = (moduleRaidStr) => {
     window.Store.ProfilePic = window.mR.findModule('profilePicResync')[0];
     window.Store.PresenceUtils = window.mR.findModule('sendPresenceAvailable')[0];
     window.Store.ChatState = window.mR.findModule('sendChatStateComposing')[0];
-    window.Store.GroupParticipants = window.mR.findModule('sendPromoteParticipants')[0];
+    window.Store.GroupParticipants = window.mR.findModule('promoteParticipants')[1];
     window.Store.JoinInviteV4 = window.mR.findModule('sendJoinGroupViaInviteV4')[0];
     window.Store.findCommonGroups = window.mR.findModule('findCommonGroups')[0].findCommonGroups;
     window.Store.StatusUtils = window.mR.findModule('setMyStatus')[0];
@@ -61,9 +60,9 @@ exports.ExposeStore = (moduleRaidStr) => {
     };
 
     window.Store.GroupUtils = {
-        ...window.mR.findModule('sendCreateGroup')[0],
-        ...window.mR.findModule('sendSetGroupSubject')[0],
-        ...window.mR.findModule('markExited')[0]
+        ...window.mR.findModule('createGroup')[0],
+        ...window.mR.findModule('setGroupDescription')[0],
+        ...window.mR.findModule('sendExitGroup')[0]
     };
 
     if (!window.Store.Chat._find) {
@@ -532,7 +531,7 @@ exports.LoadUtils = () => {
         }
 
         let buttonOptions = {};
-        if (options.buttons) {
+        if(options.buttons){
             let caption;
             if (options.buttons.type === 'chat') {
                 content = options.buttons.body;
@@ -540,17 +539,24 @@ exports.LoadUtils = () => {
             } else {
                 caption = options.caption ? options.caption : ' '; //Caption can't be empty
             }
-
-            buttonOptions = window.WWebJS.prepareMessageButtons(options.buttons);
             buttonOptions = {
-                ...buttonOptions,
+                productHeaderImageRejected: false,
+                isFromTemplate: false,
+                isDynamicReplyButtonsMsg: true,
+                title: options.buttons.title ? options.buttons.title : undefined,
+                footer: options.buttons.footer ? options.buttons.footer : undefined,
+                dynamicReplyButtons: options.buttons.buttons,
+                replyButtons: options.buttons.buttons,
                 caption: caption
             };
             delete options.buttons;
         }
 
         let listOptions = {};
-        if (options.list) {
+        if(options.list){
+            if(window.Store.Conn.platform === 'smba' || window.Store.Conn.platform === 'smbi'){
+                throw '[LT01] Whatsapp business can\'t send this yet';
+            }
             listOptions = {
                 type: 'list',
                 footer: options.list.footer,
@@ -931,5 +937,22 @@ exports.LoadUtils = () => {
         }
 
         return undefined;
+    };
+
+    window.WWebJS.rejectCall = async (peerJid, id) => {
+        peerJid = peerJid.split('@')[0] + '@s.whatsapp.net';
+        let userId = window.Store.User.getMaybeMeUser().user + '@s.whatsapp.net';
+        const stanza = window.Store.SocketWap.wap('call', {
+            id: window.Store.SocketWap.generateId(),
+            from: window.Store.SocketWap.USER_JID(userId),
+            to: window.Store.SocketWap.USER_JID(peerJid),
+        }, [
+            window.Store.SocketWap.wap('reject', {
+                'call-id': id,
+                'call-creator': window.Store.SocketWap.USER_JID(peerJid),
+                count: '0',
+            })
+        ]);
+        await window.Store.Socket.deprecatedCastStanza(stanza);
     };
 };
