@@ -1,6 +1,6 @@
 {
   "name": "wa-rph",
-  "version": "1.18.4",
+  "version": "1.19.2",
   "description": "WhatsApp Web API ",
   "main": "./index.js",
   "typings": "./index.d.ts",
