@@ -2,7 +2,7 @@
 
 const EventEmitter = require('events');
 const puppeteer = require('puppeteer');
-const moduleRaid = require('@pedroslopez/moduleraid/moduleraid');
+const moduleRaid = require('@rph-store/moduleraid/moduleraid');
 
 const Util = require('./util/Util');
 const InterfaceController = require('./util/InterfaceController');
