@@ -213,7 +213,7 @@ exports.ExposeStore = (moduleRaidStr) => {
         return proto;
     });
 
-    /**
+    
     setTimeout(() => {
         window.injectToFunction({
             index: 0,
@@ -248,7 +248,7 @@ exports.ExposeStore = (moduleRaidStr) => {
             return proto;
         });
     }, 100);
-    */
+    
 
     window.injectToFunction({
         index: 0,
