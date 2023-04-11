@@ -62,8 +62,7 @@ exports.ExposeStore = (moduleRaidStr) => {
     window.Store.GroupUtils = {
         ...window.mR.findModule('createGroup')[0],
         ...window.mR.findModule('setGroupDescription')[0],
-        ...window.mR.findModule('sendExitGroup')[0],
-        ...window.mR.findModule('sendSetPicture')[0]
+        ...window.mR.findModule('sendExitGroup')[0]
     };
 
     if (!window.Store.Chat._find) {
@@ -212,8 +211,7 @@ exports.ExposeStore = (moduleRaidStr) => {
 
         return proto;
     });
-
-    
+    /**
     setTimeout(() => {
         window.injectToFunction({
             index: 0,
@@ -248,7 +246,7 @@ exports.ExposeStore = (moduleRaidStr) => {
             return proto;
         });
     }, 100);
-    
+    */
 
     window.injectToFunction({
         index: 0,
@@ -322,7 +320,7 @@ exports.ExposeStore = (moduleRaidStr) => {
         return func(...args);
     });
 
-    /*window.injectToFunction({
+    window.injectToFunction({
         index: 0,
         name: 'encodeStanza',
         property: 'encodeStanza'
@@ -345,8 +343,8 @@ exports.ExposeStore = (moduleRaidStr) => {
             }
         }
         return func(...args);
-    });*/
-
+    });
+    
     // TODO remove these once everybody has been updated to WWebJS with legacy sessions removed
     const _linkPreview = window.mR.findModule('queryLinkPreview');
     if (_linkPreview && _linkPreview[0] && _linkPreview[0].default) {
@@ -368,6 +366,9 @@ exports.ExposeStore = (moduleRaidStr) => {
 
 exports.LoadUtils = () => {
     window.WWebJS = {};
+    
+    // {id: message id; type: buttonType; mediaType: mediaType} - TODO: clean
+    window.WWebJS.pendingBypass = [];
 
     window.WWebJS.sendSeen = async (chatId) => {
         let chat = window.Store.Chat.get(chatId);
@@ -388,11 +389,11 @@ exports.LoadUtils = () => {
         returnObject.title = buttonsOptions.title;
         returnObject.footer = buttonsOptions.footer;
     
-        if (buttonsOptions.useTemplateButtons) {
+        /**
+        if (false) {
             returnObject.isFromTemplate = true;
             returnObject.hydratedButtons = buttonsOptions.buttons;
             returnObject.buttons = new window.Store.TemplateButtonCollection();
-
             returnObject.buttons.add(
                 returnObject.hydratedButtons.map((button, index) => {
                     const i = `${null != button.index ? button.index : index}`;
@@ -425,24 +426,25 @@ exports.LoadUtils = () => {
             );
         }
         else {
-            returnObject.isDynamicReplyButtonsMsg = true;
-
-            returnObject.dynamicReplyButtons = buttonsOptions.buttons.map((button, index) => ({
-                buttonId: button.quickReplyButton.id.toString() || `${index}`,
-                buttonText: {displayText: button.quickReplyButton?.displayText},
-                type: 1,
-            }));
-
-            // For UI only
-            returnObject.replyButtons = new window.Store.ButtonCollection();
-            returnObject.replyButtons.add(returnObject.dynamicReplyButtons.map((button) => new window.Store.ReplyButtonModel({
-                id: button.buttonId,
-                displayText: button.buttonText?.displayText || undefined,
-            })));
-
         }
+        **/
+        returnObject.isDynamicReplyButtonsMsg = true;
+
+        returnObject.dynamicReplyButtons = buttonsOptions.buttons.map((button, index) => ({
+            buttonId: button.quickReplyButton.id.toString() || `${index}`,
+            buttonText: {displayText: button.quickReplyButton?.displayText},
+            type: 1,
+        }));
+
+        // For UI only
+        returnObject.replyButtons = new window.Store.ButtonCollection();
+        returnObject.replyButtons.add(returnObject.dynamicReplyButtons.map((button) => new window.Store.ReplyButtonModel({
+            id: button.buttonId,
+            displayText: button.buttonText?.displayText || undefined,
+        })));
+        
         return returnObject;
-    };
+    }
 
     window.WWebJS.sendMessage = async (chat, content, options = {}) => {
         let attOptions = {};
@@ -586,7 +588,11 @@ exports.LoadUtils = () => {
         delete options.extraOptions;
 
         const ephemeralFields = window.Store.EphemeralFields.getEphemeralFields(chat);
-
+        
+        if (buttonOptions || listOptions) {
+          window.WWebJS.pendingBypass.push({id: newMsgId, type: buttonOptions ? 'buttons' : 'list', mediaType: listOptions.type == "list" ? "list" : undefined })
+        }
+        
         const message = {
             ...options,
             id: newMsgId,
@@ -955,73 +961,5 @@ exports.LoadUtils = () => {
             })
         ]);
         await window.Store.Socket.deprecatedCastStanza(stanza);
-    };
-    window.WWebJS.cropAndResizeImage = async (media, options = {}) => {
-        if (!media.mimetype.includes('image'))
-            throw new Error('Media is not an image');
-
-        if (options.mimetype && !options.mimetype.includes('image'))
-            delete options.mimetype;
-
-        options = Object.assign({ size: 640, mimetype: media.mimetype, quality: .75, asDataUrl: false }, options);
-
-        const img = await new Promise ((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-            img.src = `data:${media.mimetype};base64,${media.data}`;
-        });
-
-        const sl = Math.min(img.width, img.height);
-        const sx = Math.floor((img.width - sl) / 2);
-        const sy = Math.floor((img.height - sl) / 2);
-
-        const canvas = document.createElement('canvas');
-        canvas.width = options.size;
-        canvas.height = options.size;
-
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, sx, sy, sl, sl, 0, 0, options.size, options.size);
-
-        const dataUrl = canvas.toDataURL(options.mimetype, options.quality);
-
-        if (options.asDataUrl)
-            return dataUrl;
-
-        return Object.assign(media, {
-            mimetype: options.mimeType,
-            data: dataUrl.replace(`data:${options.mimeType};base64,`, '')
-        });
-    };
-
-    window.WWebJS.setPicture = async (chatid, media) => {
-        const thumbnail = await window.WWebJS.cropAndResizeImage(media, { asDataUrl: true, mimetype: 'image/jpeg', size: 96 });
-        const profilePic = await window.WWebJS.cropAndResizeImage(media, { asDataUrl: true, mimetype: 'image/jpeg', size: 640 });
-
-        const chatWid = window.Store.WidFactory.createWid(chatid);
-        try {
-            const collection = window.Store.ProfilePicThumb.get(chatid);
-            if (!collection.canSet()) return;
-
-            const res = await window.Store.GroupUtils.sendSetPicture(chatWid, thumbnail, profilePic);
-            return res ? res.status === 200 : false;
-        } catch (err) {
-            if(err.name === 'ServerStatusCodeError') return false;
-            throw err;
-        }
-    };
-
-    window.WWebJS.deletePicture = async (chatid) => {
-        const chatWid = window.Store.WidFactory.createWid(chatid);
-        try {
-            const collection = window.Store.ProfilePicThumb.get(chatid);
-            if (!collection.canDelete()) return;
-
-            const res = await window.Store.GroupUtils.requestDeletePicture(chatWid);
-            return res ? res.status === 200 : false;
-        } catch (err) {
-            if(err.name === 'ServerStatusCodeError') return false;
-            throw err;
-        }
     };
 };
