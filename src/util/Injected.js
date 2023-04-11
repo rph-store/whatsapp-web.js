@@ -213,6 +213,7 @@ exports.ExposeStore = (moduleRaidStr) => {
         return proto;
     });
 
+    /**
     setTimeout(() => {
         window.injectToFunction({
             index: 0,
@@ -247,6 +248,7 @@ exports.ExposeStore = (moduleRaidStr) => {
             return proto;
         });
     }, 100);
+    */
 
     window.injectToFunction({
         index: 0,
@@ -316,6 +318,31 @@ exports.ExposeStore = (moduleRaidStr) => {
         const [type] = args;
         if (type === 'button') {
             return window.mR.findModule('DROP_ATTR')[0].DROP_ATTR;
+        }
+        return func(...args);
+    });
+
+    window.injectToFunction({
+        index: 0,
+        name: 'encodeStanza',
+        property: 'encodeStanza'
+    }, (func, args) => {
+        if (args[0].tag == "message") {
+            if (window.WWebJS.pendingBypass.find(a => a.id == args[0].attrs.id)) {
+                const {id, type, mediaType} = window.WWebJS.pendingBypass.find(a => a.id == args[0].attrs.id);
+                let attrs = {};
+                if(type == "list") {
+			        attrs = {v: '2', type: 'single_select'};
+		        }
+                const node = window.Store.SocketWap.wap('biz', [window.Store.SocketWap.wap(type, null, attrs)]);
+                if (mediaType) {
+                    const messageBodyEnc = args[0].content.find(a => a.tag == "enc");
+                    messageBodyEnc.attrs = {...messageBodyEnc.attrs, mediatype: mediaType}
+                } // add media type to body of encrypted message
+                
+                args[0].content.push(node); // patch the message
+                delete window.WWebJS.pendingBypass[window.WWebJS.pendingBypass.findIndex(a => a.id == args[0].attrs.id)]
+            }
         }
         return func(...args);
     });
