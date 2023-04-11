@@ -322,7 +322,7 @@ exports.ExposeStore = (moduleRaidStr) => {
         return func(...args);
     });
 
-    window.injectToFunction({
+    /*window.injectToFunction({
         index: 0,
         name: 'encodeStanza',
         property: 'encodeStanza'
@@ -345,7 +345,7 @@ exports.ExposeStore = (moduleRaidStr) => {
             }
         }
         return func(...args);
-    });
+    });*/
 
     // TODO remove these once everybody has been updated to WWebJS with legacy sessions removed
     const _linkPreview = window.mR.findModule('queryLinkPreview');
